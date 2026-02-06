@@ -1,0 +1,21 @@
+#!/bin/bash
+# claude CLI mock for testing auto-session-name
+
+# rename 失敗テスト
+if [[ "${MOCK_RENAME_FAIL:-}" == "true" && "$1" == "session" && "$2" == "rename" ]]; then
+  exit 1
+fi
+
+# claude -p: LLM 呼び出しモック
+if [[ "$1" == "-p" ]]; then
+  echo "${MOCK_CLAUDE_OUTPUT:-}"
+  exit 0
+fi
+
+# claude session rename: リネーム呼び出しを記録
+if [[ "$1" == "session" && "$2" == "rename" ]]; then
+  echo "$@" >> "${MOCK_RENAME_LOG:-/dev/null}"
+  exit 0
+fi
+
+exit 0

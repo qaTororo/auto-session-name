@@ -50,11 +50,32 @@ claude --plugin-dir /path/to/auto-session-name
 - Common abbreviations used: `auth`, `config`, `db`, `api`, `fix`, `refact`, `test`, etc.
 - Minimum 3 characters required for validation
 
+## Configuration
+
+Customize behavior with environment variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `AUTO_SESSION_NAME_MAX_MESSAGES` | `5` | Number of user messages to analyze |
+| `AUTO_SESSION_NAME_MAX_CONTEXT` | `800` | Maximum context characters sent to LLM |
+| `AUTO_SESSION_NAME_MIN_CONTEXT` | `20` | Minimum context length to proceed |
+| `AUTO_SESSION_NAME_MIN_TOPIC` | `3` | Minimum topic name length |
+| `AUTO_SESSION_NAME_LLM_TIMEOUT` | `25` | LLM call timeout in seconds |
+
 ## Dependencies
 
 - `jq` — JSON parsing
 - `claude` CLI — Used for LLM generation (`claude -p`) and renaming (`claude session rename`)
+- `timeout` (optional) — GNU coreutils; used to enforce LLM call timeout. Falls back gracefully if unavailable.
 - Anthropic API key — Used internally by `claude -p`
+
+## Cleanup
+
+State files in `$TMPDIR` (or `/tmp`) are automatically cleaned up after 7 days. To manually remove them:
+
+```bash
+find "${TMPDIR:-/tmp}" -name "auto-session-name-*" -delete
+```
 
 ## License
 
