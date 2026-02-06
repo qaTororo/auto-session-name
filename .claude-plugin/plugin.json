@@ -1,0 +1,8 @@
+{
+  "name": "auto-session-name",
+  "version": "0.1.0",
+  "description": "Automatically name Claude Code sessions based on conversation context",
+  "author": { "name": "qaTororo" },
+  "license": "MIT",
+  "keywords": ["session", "naming", "productivity", "resume"]
+}

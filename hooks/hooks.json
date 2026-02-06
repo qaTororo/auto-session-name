@@ -1,0 +1,16 @@
+{
+  "description": "Auto-name sessions using LLM-generated names from conversation context",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/auto-name.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
