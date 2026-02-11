@@ -23,6 +23,7 @@ teardown() {
   input=$(create_hook_input "$TEST_SESSION_ID" "$transcript" "default" "true")
   run_hook "$input"
 
+  [[ "$status" -eq 0 ]]
   [[ ! -f "$MOCK_RENAME_LOG" ]]
 }
 
@@ -39,6 +40,7 @@ teardown() {
   input=$(create_hook_input "$TEST_SESSION_ID" "$transcript")
   run_hook "$input"
 
+  [[ "$status" -eq 0 ]]
   [[ ! -f "$MOCK_RENAME_LOG" ]]
 }
 
@@ -49,6 +51,7 @@ teardown() {
   input=$(create_hook_input "$TEST_SESSION_ID" "${TEST_TMPDIR}/nonexistent.jsonl")
   run_hook "$input"
 
+  [[ "$status" -eq 0 ]]
   [[ ! -f "$MOCK_RENAME_LOG" ]]
 }
 
@@ -61,6 +64,7 @@ teardown() {
   input=$(create_hook_input "$TEST_SESSION_ID" "$transcript")
   run_hook "$input"
 
+  [[ "$status" -eq 0 ]]
   [[ -f "$TEST_STATE_FILE" ]]
   [[ ! -f "$MOCK_RENAME_LOG" ]]
 }
@@ -74,6 +78,7 @@ teardown() {
   input=$(create_hook_input "$TEST_SESSION_ID" "$transcript")
   run_hook "$input"
 
+  [[ "$status" -eq 0 ]]
   [[ ! -f "$MOCK_RENAME_LOG" ]]
 }
 
@@ -87,6 +92,7 @@ teardown() {
   input=$(create_hook_input "$TEST_SESSION_ID" "$transcript")
   run_hook "$input"
 
+  [[ "$status" -eq 0 ]]
   [[ ! -f "$MOCK_RENAME_LOG" ]]
 }
 
@@ -100,6 +106,7 @@ teardown() {
   input=$(create_hook_input "$TEST_SESSION_ID" "$transcript")
   run_hook "$input"
 
+  [[ "$status" -eq 0 ]]
   [[ ! -f "$MOCK_RENAME_LOG" ]]
 }
 
@@ -117,6 +124,7 @@ teardown() {
   input=$(create_hook_input "$TEST_SESSION_ID" "$transcript")
   run_hook "$input"
 
+  [[ "$status" -eq 0 ]]
   [[ -f "$MOCK_RENAME_LOG" ]]
 }
 
@@ -130,6 +138,7 @@ teardown() {
   input=$(create_hook_input "$TEST_SESSION_ID" "$transcript")
   run_hook "$input"
 
+  [[ "$status" -eq 0 ]]
   [[ -f "$MOCK_RENAME_LOG" ]]
 }
 
@@ -153,6 +162,7 @@ teardown() {
   input=$(create_hook_input "$TEST_SESSION_ID" "$transcript")
   run_hook "$input"
 
+  [[ "$status" -eq 0 ]]
   # Confirm normal processing by verifying rename was called
   [[ -f "$MOCK_RENAME_LOG" ]]
 
@@ -160,6 +170,50 @@ teardown() {
   local line_count
   line_count=$(wc -l < "$transcript")
   [[ "$line_count" -eq 10 ]]
+
+  # Verify LLM stdin contains first 5 messages but not 6th+
+  [[ -f "$MOCK_STDIN_LOG" ]]
+  grep -q "First message" "$MOCK_STDIN_LOG"
+  grep -q "Fifth message" "$MOCK_STDIN_LOG"
+  ! grep -q "Sixth message" "$MOCK_STDIN_LOG"
+}
+
+@test "LLM receives correct context from transcript" {
+  local transcript="${TEST_TMPDIR}/transcript.jsonl"
+  create_transcript "$transcript" "string" \
+    "Help me set up a REST API with Express"
+  MOCK_CLAUDE_OUTPUT="rest-api-setup"
+
+  local input
+  input=$(create_hook_input "$TEST_SESSION_ID" "$transcript")
+  run_hook "$input"
+
+  [[ "$status" -eq 0 ]]
+  [[ -f "$MOCK_STDIN_LOG" ]]
+  grep -q "Help me set up a REST API with Express" "$MOCK_STDIN_LOG"
+}
+
+@test "context exceeding MAX_CONTEXT_CHARS is truncated" {
+  local transcript="${TEST_TMPDIR}/transcript.jsonl"
+  # Create a message with 100 chars (well above limit of 50)
+  local long_msg
+  long_msg=$(printf 'A%.0s' {1..100})
+  create_transcript "$transcript" "string" "$long_msg"
+  MOCK_CLAUDE_OUTPUT="long-topic"
+
+  # Set max context to 50 chars
+  export AUTO_SESSION_NAME_MAX_CONTEXT=50
+
+  local input
+  input=$(create_hook_input "$TEST_SESSION_ID" "$transcript")
+  run_hook "$input"
+
+  [[ "$status" -eq 0 ]]
+  [[ -f "$MOCK_STDIN_LOG" ]]
+  # stdin to LLM should be truncated to 50 chars
+  local stdin_len
+  stdin_len=$(wc -c < "$MOCK_STDIN_LOG")
+  [[ "$stdin_len" -le 51 ]]  # 50 chars + possible trailing newline
 }
 
 # ════════════════════════════════════════════════════════════
@@ -176,6 +230,7 @@ teardown() {
   input=$(create_hook_input "$TEST_SESSION_ID" "$transcript" "plan")
   run_hook "$input"
 
+  [[ "$status" -eq 0 ]]
   [[ -f "$MOCK_RENAME_LOG" ]]
   grep -q "plan-auth-design" "$MOCK_RENAME_LOG"
 }
@@ -190,6 +245,7 @@ teardown() {
   input=$(create_hook_input "$TEST_SESSION_ID" "$transcript" "default")
   run_hook "$input"
 
+  [[ "$status" -eq 0 ]]
   [[ -f "$MOCK_RENAME_LOG" ]]
   grep -q "auth-impl" "$MOCK_RENAME_LOG"
   ! grep -q "plan-" "$MOCK_RENAME_LOG"
@@ -209,6 +265,7 @@ teardown() {
   input=$(create_hook_input "$TEST_SESSION_ID" "$transcript")
   run_hook "$input"
 
+  [[ "$status" -eq 0 ]]
   [[ -f "$MOCK_RENAME_LOG" ]]
   grep -q "session rename ${TEST_SESSION_ID} auth-fix" "$MOCK_RENAME_LOG"
 }
@@ -224,6 +281,7 @@ teardown() {
   input=$(create_hook_input "$TEST_SESSION_ID" "$transcript")
   run_hook "$input"
 
+  [[ "$status" -eq 0 ]]
   # STATE_FILE is created even on rename failure
   [[ -f "$TEST_STATE_FILE" ]]
 }
@@ -238,7 +296,24 @@ teardown() {
   input=$(create_hook_input "$TEST_SESSION_ID" "$transcript")
   run_hook "$input"
 
+  [[ "$status" -eq 0 ]]
   [[ -f "$MOCK_RENAME_LOG" ]]
   grep -q "auth-fix" "$MOCK_RENAME_LOG"
   ! grep -q "Auth" "$MOCK_RENAME_LOG"
+}
+
+@test "TOPIC normalization: consecutive hyphens collapsed" {
+  local transcript="${TEST_TMPDIR}/transcript.jsonl"
+  create_transcript "$transcript" "string" \
+    "Please help me fix the authentication system in my application"
+  MOCK_CLAUDE_OUTPUT="auth---fix"
+
+  local input
+  input=$(create_hook_input "$TEST_SESSION_ID" "$transcript")
+  run_hook "$input"
+
+  [[ "$status" -eq 0 ]]
+  [[ -f "$MOCK_RENAME_LOG" ]]
+  grep -q "auth-fix" "$MOCK_RENAME_LOG"
+  ! grep -q "auth---fix" "$MOCK_RENAME_LOG"
 }

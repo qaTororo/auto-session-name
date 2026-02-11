@@ -8,6 +8,8 @@ fi
 
 # claude -p: LLM 呼び出しモック
 if [[ "$1" == "-p" ]]; then
+  # stdin を消費してログに保存（テストで検証可能にする）
+  cat > "${MOCK_STDIN_LOG:-/dev/null}"
   echo "${MOCK_CLAUDE_OUTPUT:-}"
   exit 0
 fi

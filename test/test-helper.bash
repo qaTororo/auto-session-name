@@ -22,6 +22,7 @@ common_setup() {
   export MOCK_CLAUDE_OUTPUT=""
   export MOCK_RENAME_LOG="${TEST_TMPDIR}/rename.log"
   export MOCK_RENAME_FAIL=""
+  export MOCK_STDIN_LOG="${TEST_TMPDIR}/stdin.log"
 
   # Unique session_id for each test
   export TEST_SESSION_ID="test-session-${BATS_TEST_NUMBER}"
@@ -93,7 +94,7 @@ create_transcript_with_custom_title() {
 }
 
 # run_hook: execute auto-name.sh with JSON on stdin
+# Uses bats `run` to capture $status and $output
 run_hook() {
-  local hook_input="$1"
-  echo "$hook_input" | bash "$HOOK_SCRIPT"
+  run bash -c 'echo "$1" | bash "$2"' -- "$1" "$HOOK_SCRIPT"
 }

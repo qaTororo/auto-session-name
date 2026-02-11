@@ -28,14 +28,18 @@ run_with_timeout() {
 
 HOOK_INPUT=$(cat)
 
-# ── 1. Prevent infinite loop: check stop_hook_active ──
-STOP_HOOK_ACTIVE=$(echo "$HOOK_INPUT" | jq -r '.stop_hook_active // false')
-if [[ "$STOP_HOOK_ACTIVE" == "true" ]]; then exit 0; fi
+# ── 1. Extract all fields in a single jq call ──
+read -r STOP_HOOK_ACTIVE SESSION_ID TRANSCRIPT_PATH PERMISSION_MODE < <(
+  printf '%s' "$HOOK_INPUT" | jq -r '[
+    (.stop_hook_active // false | tostring),
+    .session_id,
+    .transcript_path,
+    (.permission_mode // "default")
+  ] | @tsv'
+)
 
-# ── 2. Extract session info ──
-SESSION_ID=$(echo "$HOOK_INPUT" | jq -r '.session_id')
-TRANSCRIPT_PATH=$(echo "$HOOK_INPUT" | jq -r '.transcript_path')
-PERMISSION_MODE=$(echo "$HOOK_INPUT" | jq -r '.permission_mode // "default"')
+# ── 2. Prevent infinite loop: check stop_hook_active ──
+if [[ "$STOP_HOOK_ACTIVE" == "true" ]]; then exit 0; fi
 
 # Sanitize SESSION_ID (allow only alphanumeric characters and hyphens)
 SESSION_ID=$(printf '%s' "$SESSION_ID" | tr -cd 'a-zA-Z0-9-')
@@ -61,16 +65,17 @@ if grep -q '"custom-title"' "$TRANSCRIPT_PATH" 2>/dev/null; then
 fi
 
 # ── 6. Extract context from user messages ──
-# Single jq invocation replaces grep + jq pipeline for fewer subprocesses
-CONTEXT=$(jq -r '
-  select(.type == "user") |
-  .message.content |
-  if type == "string" then .
-  elif type == "array" then
-    map(select(.type == "text") | .text) | join(" ")
-  else "" end
+# --slurp reads all JSONL lines into an array; limit() takes first N user messages
+CONTEXT=$(jq -r -s --argjson max "$MAX_USER_MESSAGES" '
+  [limit($max; .[] | select(.type == "user"))] |
+  map(
+    .message.content |
+    if type == "string" then .
+    elif type == "array" then
+      map(select(.type == "text") | .text) | join(" ")
+    else "" end
+  ) | join("\n")
 ' "$TRANSCRIPT_PATH" 2>/dev/null \
-  | head -"$MAX_USER_MESSAGES" \
   | head -c "$MAX_CONTEXT_CHARS") || true
 
 # Skip if context is too short (will retry on next Stop)
@@ -106,7 +111,7 @@ fi
 TOPIC=$(printf '%s' "$TOPIC_RAW" \
   | tr -d ' \t\n\r' \
   | tr 'A-Z' 'a-z' \
-  | sed 's/[^a-z-]//g; s/^-//; s/-$//')
+  | sed 's/[^a-z-]//g; s/-\{2,\}/-/g; s/^-//; s/-$//')
 
 # Validation (reject topics shorter than minimum length)
 if [[ -z "$TOPIC" || ${#TOPIC} -lt $MIN_TOPIC_LENGTH ]]; then exit 0; fi
