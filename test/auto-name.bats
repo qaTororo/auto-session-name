@@ -267,7 +267,7 @@ teardown() {
 
   [[ "$status" -eq 0 ]]
   [[ -f "$MOCK_RENAME_LOG" ]]
-  grep -q "session rename ${TEST_SESSION_ID} auth-fix" "$MOCK_RENAME_LOG"
+  grep -q "session rename -- ${TEST_SESSION_ID} auth-fix" "$MOCK_RENAME_LOG"
 }
 
 @test "rename failure still creates STATE_FILE" {

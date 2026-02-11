@@ -7,6 +7,9 @@ MAX_CONTEXT_CHARS="${AUTO_SESSION_NAME_MAX_CONTEXT:-800}"
 MIN_CONTEXT_LENGTH="${AUTO_SESSION_NAME_MIN_CONTEXT:-20}"
 MIN_TOPIC_LENGTH="${AUTO_SESSION_NAME_MIN_TOPIC:-3}"
 LLM_TIMEOUT="${AUTO_SESSION_NAME_LLM_TIMEOUT:-25}"
+if ! [[ "$LLM_TIMEOUT" =~ ^[0-9]+$ ]] || [[ "$LLM_TIMEOUT" -lt 1 ]] || [[ "$LLM_TIMEOUT" -gt 60 ]]; then
+  LLM_TIMEOUT=25
+fi
 CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 
 # ── Dependency check ──
@@ -43,7 +46,7 @@ if [[ "$STOP_HOOK_ACTIVE" == "true" ]]; then exit 0; fi
 
 # Sanitize SESSION_ID (allow only alphanumeric characters and hyphens)
 SESSION_ID=$(printf '%s' "$SESSION_ID" | tr -cd 'a-zA-Z0-9-')
-if [[ -z "$SESSION_ID" ]]; then exit 0; fi
+if [[ -z "$SESSION_ID" || "$SESSION_ID" == -* ]]; then exit 0; fi
 
 # ── 3. State file check (run only once per session) ──
 STATE_DIR="${TMPDIR:-/tmp}"
@@ -104,7 +107,12 @@ Rules:
 Output ONLY the topic name, nothing else." 2>&1) || LLM_ERROR="$?"
 
 if [[ -n "$LLM_ERROR" ]]; then
-  echo "[auto-session-name] LLM call failed (exit code: $LLM_ERROR)" >&2
+  if [[ "$LLM_ERROR" == "124" ]]; then
+    echo "[auto-session-name] LLM call timed out after ${LLM_TIMEOUT}s" >&2
+    touch "$STATE_FILE"
+  else
+    echo "[auto-session-name] LLM call failed (exit code: $LLM_ERROR)" >&2
+  fi
   exit 0
 fi
 
@@ -120,7 +128,7 @@ if [[ -z "$TOPIC" || ${#TOPIC} -lt $MIN_TOPIC_LENGTH ]]; then exit 0; fi
 SESSION_NAME="${PREFIX}${TOPIC}"
 
 # ── 10. Apply session name ──
-"$CLAUDE_CMD" session rename "$SESSION_ID" "$SESSION_NAME" 2>/dev/null || true
+"$CLAUDE_CMD" session rename -- "$SESSION_ID" "$SESSION_NAME" 2>/dev/null || true
 
 # ── 11. Create state file (only after attempted rename) ──
 echo "$SESSION_NAME" > "$STATE_FILE"
