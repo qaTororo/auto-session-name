@@ -1,5 +1,9 @@
 # auto-session-name
 
+> **Archived**: This plugin is no longer maintained. As of Claude Code v2.1.41, the built-in `/rename` command auto-generates session names from conversation context when called without arguments, making this plugin unnecessary.
+>
+> To uninstall: `claude plugin remove qaTororo/auto-session-name`
+
 Automatically name Claude Code sessions based on conversation context.
 
 When a session stops, this plugin analyzes the conversation and generates a concise, descriptive session name using an LLM. This makes it much easier to find and resume past sessions with `/resume`.
